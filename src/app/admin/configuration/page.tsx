@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface PayPalSettings {
   paypalClientId: string;
@@ -17,6 +17,28 @@ interface GeneralSettings {
   moderationEnabled: boolean;
   notificationsEnabled: boolean;
   maintenanceMode: boolean;
+}
+
+interface RestoreStats {
+  users: number;
+  tenantProfiles: number;
+  landlordListings: number;
+  colocListings: number;
+  professionalAccounts: number;
+  proServices: number;
+  serviceAds: number;
+  payments: number;
+  unlockedContacts: number;
+  settings: number;
+  errors: string[];
+}
+
+interface RestoreResult {
+  success: boolean;
+  message: string;
+  stats: RestoreStats;
+  backupDate: string;
+  backupVersion: string;
 }
 
 export default function ConfigurationPage() {
@@ -44,6 +66,12 @@ export default function ConfigurationPage() {
   const [paypalTestResult, setPaypalTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [lastBackup, setLastBackup] = useState<{ date: Date | null; size: string | null }>({ date: null, size: null });
+  
+  // États pour la restauration
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Charger les paramètres existants
   useEffect(() => {
@@ -175,6 +203,63 @@ export default function ConfigurationPage() {
     } finally {
       setBackupLoading(false);
     }
+  };
+
+  // Restaurer une sauvegarde
+  const handleRestore = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Confirmer l'action
+    const confirmed = window.confirm(
+      '⚠️ ATTENTION: La restauration va modifier les données existantes.\n\n' +
+      'Voulez-vous vraiment restaurer cette sauvegarde ?\n\n' +
+      'Fichier: ' + file.name
+    );
+    
+    if (!confirmed) {
+      // Reset le file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setRestoreLoading(true);
+    setRestoreResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('backup', file);
+
+      const res = await fetch('/api/admin/backup', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setRestoreResult(data);
+        setShowRestoreModal(true);
+      } else {
+        alert('Erreur lors de la restauration: ' + (data.error || 'Erreur inconnue'));
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert('Erreur lors de la restauration: ' + errorMessage);
+    } finally {
+      setRestoreLoading(false);
+      // Reset le file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Déclencher le sélecteur de fichier
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   // Formater le temps écoulé depuis la dernière sauvegarde
@@ -552,15 +637,47 @@ export default function ConfigurationPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    📥 Sauvegarder maintenant
+                    📥 Sauvegarder
                   </>
                 )}
               </button>
-              
-              <p className="text-sm text-gray-500">
-                Télécharge un fichier <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">domelia-backup-YYYY-MM-DD.json</code>
-              </p>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleRestore}
+                accept=".json,application/json"
+                className="hidden"
+              />
+
+              {/* Restore Button */}
+              <button
+                onClick={triggerFileInput}
+                disabled={restoreLoading}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {restoreLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Restauration...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    📤 Restaurer
+                  </>
+                )}
+              </button>
             </div>
+
+            <p className="text-sm text-gray-500">
+              Sauvegarde: <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">domelia-backup-YYYY-MM-DD.json</code>
+              <span className="mx-2">|</span>
+              Restauration: Sélectionnez un fichier de sauvegarde valide
+            </p>
 
             {/* Security Info */}
             <div className="p-4 bg-[#560591]/5 rounded-xl border border-[#560591]/20">
@@ -622,11 +739,11 @@ export default function ConfigurationPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                Restauration
+                Attention
               </h4>
               <p className="text-sm text-amber-700">
-                La restauration automatique n'est pas disponible pour des raisons de sécurité. 
-                En cas de besoin, contactez l'équipe technique avec le fichier de sauvegarde.
+                La restauration modifie les données existantes. Assurez-vous d'avoir une sauvegarde récente avant de restaurer.
+                Les secrets PayPal ne sont pas restaurés pour des raisons de sécurité.
               </p>
             </div>
           </div>
@@ -645,6 +762,102 @@ export default function ConfigurationPage() {
           </button>
         </div>
       </div>
+
+      {/* Restore Result Modal */}
+      {showRestoreModal && restoreResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                {restoreResult.success ? (
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {restoreResult.success ? 'Restauration réussie' : 'Erreur de restauration'}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Sauvegarde du {new Date(restoreResult.backupDate).toLocaleString('fr-FR')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Utilisateurs</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.users}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Profils locataires</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.tenantProfiles}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Annonces logements</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.landlordListings}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Annonces colocation</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.colocListings}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Comptes pro</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.professionalAccounts}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Services</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.proServices + restoreResult.stats.serviceAds}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Paiements</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.payments}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">Paramètres</p>
+                  <p className="font-semibold text-gray-800">{restoreResult.stats.settings}</p>
+                </div>
+              </div>
+
+              {/* Errors */}
+              {restoreResult.stats.errors.length > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200 mb-4">
+                  <p className="text-sm font-medium text-red-800 mb-2">
+                    {restoreResult.stats.errors.length} erreur(s)
+                  </p>
+                  <div className="max-h-32 overflow-y-auto">
+                    {restoreResult.stats.errors.slice(0, 5).map((error, i) => (
+                      <p key={i} className="text-xs text-red-600">{error}</p>
+                    ))}
+                    {restoreResult.stats.errors.length > 5 && (
+                      <p className="text-xs text-red-400">...et {restoreResult.stats.errors.length - 5} autres</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowRestoreModal(false);
+                  setRestoreResult(null);
+                }}
+                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-xl transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
