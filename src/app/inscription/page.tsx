@@ -1,5 +1,6 @@
 // Page d'inscription - Domelia.fr
 import Link from "next/link";
+import { RegisterForm } from "@/components/domelia/RegisterForm";
 
 export default function InscriptionPage() {
   return (
@@ -39,99 +40,7 @@ export default function InscriptionPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-luxe-lg p-8">
-            <form action="/api/auth/register" method="POST" className="space-y-5">
-              {/* Nom */}
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-[#1E293B] mb-2">
-                  Nom complet
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  placeholder="Marie Dupont"
-                  className="w-full px-4 py-3 rounded-xl border border-[#F1F5F9] bg-white text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#560591] focus:border-transparent transition-all"
-                  required
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-[#1E293B] mb-2">
-                  Adresse email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  placeholder="marie@exemple.fr"
-                  className="w-full px-4 py-3 rounded-xl border border-[#F1F5F9] bg-white text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#560591] focus:border-transparent transition-all"
-                  required
-                />
-              </div>
-
-              {/* Mot de passe */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-[#1E293B] mb-2">
-                  Mot de passe
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-xl border border-[#F1F5F9] bg-white text-[#1E293B] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#560591] focus:border-transparent transition-all"
-                  minLength={6}
-                  required
-                />
-                <p className="text-xs text-[#94A3B8] mt-1">Minimum 6 caractères</p>
-              </div>
-
-              {/* Rôle */}
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-[#1E293B] mb-2">
-                  Je suis
-                </label>
-                <select
-                  id="role"
-                  name="role"
-                  className="w-full px-4 py-3 rounded-xl border border-[#F1F5F9] bg-white text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#560591] focus:border-transparent transition-all"
-                  defaultValue="locataire"
-                >
-                  <option value="locataire">À la recherche d'un logement</option>
-                  <option value="proprietaire">Propriétaire / Loueur</option>
-                </select>
-              </div>
-
-              {/* CGU */}
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="cgu"
-                  name="cgu"
-                  className="mt-1 w-4 h-4 text-[#560591] border-[#F1F5F9] rounded focus:ring-[#560591]"
-                  required
-                />
-                <label htmlFor="cgu" className="text-sm text-[#475569]">
-                  J'accepte les{" "}
-                  <Link href="#" className="text-[#560591] hover:underline">
-                    conditions générales
-                  </Link>{" "}
-                  et la{" "}
-                  <Link href="#" className="text-[#560591] hover:underline">
-                    politique de confidentialité
-                  </Link>
-                </label>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="w-full bg-[#560591] text-white font-semibold py-3.5 rounded-xl transition-all duration-300 hover:bg-[#3D0466] hover:shadow-lg btn-shimmer"
-              >
-                Créer mon compte
-              </button>
-            </form>
+            <RegisterForm />
 
             {/* Séparateur */}
             <div className="relative my-6">

@@ -41,6 +41,14 @@ export async function getCurrentUser() {
     where: { id: userId },
     include: {
       tenantProfile: true,
+      professionalAccount: {
+        include: {
+          services: {
+            where: { isActive: true },
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
     },
   });
   

@@ -5,7 +5,7 @@ import { HeroSection } from "@/components/domelia/HeroSection";
 import { TenantCard } from "@/components/domelia/TenantCard";
 import { ListingCard } from "@/components/domelia/ListingCard";
 import { ColocationCard } from "@/components/domelia/ColocationCard";
-import { ServiceCard } from "@/components/domelia/ServiceCard";
+import { ProServiceCard } from "@/components/domelia/ProServiceCard";
 import { Footer } from "@/components/domelia/Footer";
 import Link from "next/link";
 
@@ -425,69 +425,189 @@ async function ColocationSection() {
   );
 }
 
-// Section Services
+// Section Services Professionnels
 async function ServiceSection() {
-  let services;
+  let services: {
+    id: string;
+    title: string;
+    description: string | null;
+    price: number | null;
+    priceType: string;
+    photos: string[];
+    zone: string | null;
+    category: string;
+    views: number;
+    pro: {
+      id: string;
+      companyName: string;
+      logo: string | null;
+      zone: string;
+      isVerified: boolean;
+      partnerBadge: boolean;
+    };
+  }[] = [];
   
   try {
-    const dbServices = await db.serviceAd.findMany({
+    // D'abord essayer les services professionnels
+    const proServices = await db.proService.findMany({
       where: { 
         isActive: true,
-        user: { isActive: true } // Vérifier que l'utilisateur est actif
+        isPaid: true,
+        pro: { 
+          isApproved: true,
+          isVerified: true,
+        },
       },
       take: 6,
-      orderBy: { createdAt: "desc" },
+      orderBy: [
+        { pro: { partnerBadge: "desc" } },
+        { views: "desc" },
+      ],
+      include: {
+        pro: {
+          select: {
+            id: true,
+            companyName: true,
+            logo: true,
+            zone: true,
+            isVerified: true,
+            partnerBadge: true,
+          },
+        },
+      },
     });
     
-    if (dbServices.length === 0) {
-      services = demoServices;
+    if (proServices.length > 0) {
+      services = proServices.map(s => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        price: s.price,
+        priceType: s.priceType,
+        photos: s.photos ? JSON.parse(s.photos) : [],
+        zone: s.zone,
+        category: s.category,
+        views: s.views,
+        pro: {
+          id: s.pro.id,
+          companyName: s.pro.companyName,
+          logo: s.pro.logo,
+          zone: s.pro.zone,
+          isVerified: s.pro.isVerified,
+          partnerBadge: s.pro.partnerBadge,
+        },
+      }));
     } else {
-      // Mapper les données de la BDD au format attendu par le composant
+      // Fallback vers les anciens services (ServiceAd)
+      const dbServices = await db.serviceAd.findMany({ 
+        where: { isActive: true, isVerified: true },
+        take: 6,
+        orderBy: { createdAt: "desc" },
+      });
+      
       services = dbServices.map(s => ({
         id: s.id,
-        companyName: s.company || "Professionnel",
-        category: s.category,
         title: s.title,
-        description: s.description || undefined,
-        price: s.price || undefined,
-        zone: s.zone || undefined,
-        siretVerified: s.isVerified,
+        description: s.description,
+        price: s.price,
+        priceType: "fixed",
+        photos: s.photo ? [s.photo] : [],
+        zone: s.zone,
+        category: s.category,
+        views: s.views,
+        pro: {
+          id: s.proId,
+          companyName: s.company || "Professionnel",
+          logo: null,
+          zone: s.zone || "France",
+          isVerified: s.isVerified,
+          partnerBadge: false,
+        },
+      }));
+    }
+    
+    if (services.length === 0) {
+      // Utiliser les données de démo
+      services = demoServices.map(s => ({
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        price: s.price,
+        priceType: "from",
+        photos: [],
+        zone: s.zone,
+        category: s.category,
+        views: 0,
+        pro: {
+          id: "demo-pro",
+          companyName: s.companyName,
+          logo: null,
+          zone: s.zone,
+          isVerified: s.siretVerified,
+          partnerBadge: false,
+        },
       }));
     }
   } catch (error) {
-    services = demoServices;
+    console.error("Erreur chargement services:", error);
+    services = demoServices.map(s => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      price: s.price,
+      priceType: "from",
+      photos: [],
+      zone: s.zone,
+      category: s.category,
+      views: 0,
+      pro: {
+        id: "demo-pro",
+        companyName: s.companyName,
+        logo: null,
+        zone: s.zone,
+        isVerified: s.siretVerified,
+        partnerBadge: false,
+      },
+    }));
   }
 
   return (
-    <section id="services" className="py-16 md:py-24 bg-white">
+    <section id="services" className="py-16 md:py-24 bg-gradient-to-b from-[#ECFDF5]/30 to-white">
       <div className="container-domelia">
         <div className="text-center mb-12">
           <span className="inline-block bg-[#ECFDF5] text-[#10B981] font-semibold px-4 py-2 rounded-full text-sm mb-4">
             📦 Simplifiez votre déménagement
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-[#1E293B] mb-4">
-            Services pratiques pour votre déménagement
+            Services pratiques pour votre installation
           </h2>
           <p className="text-[#475569] text-lg max-w-2xl mx-auto">
-            Des professionnels vérifiés pour vous accompagner dans toutes les étapes de votre installation.
+            Des professionnels vérifiés pour vous accompagner : déménagement, garde-meubles, assurance...
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service, index) => (
-            <ServiceCard key={service.id} service={service} delay={index * 100} />
+            <ProServiceCard key={service.id} service={service} />
           ))}
         </div>
 
-        <div className="text-center mt-12">
+        <div className="text-center mt-12 flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link
             href="/services"
-            className="inline-flex items-center gap-2 text-[#560591] font-semibold hover:text-[#3D0466] transition-colors"
+            className="inline-flex items-center gap-2 text-[#10B981] font-semibold hover:text-[#059669] transition-colors"
           >
             Voir tous les services
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
+          </Link>
+          <span className="text-[#94A3B8]">ou</span>
+          <Link
+            href="/devenir-partenaire"
+            className="inline-flex items-center gap-2 bg-[#10B981] text-white font-semibold px-6 py-3 rounded-xl hover:bg-[#059669] transition-colors"
+          >
+            🤝 Devenir partenaire
           </Link>
         </div>
       </div>

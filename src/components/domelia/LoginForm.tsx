@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -34,9 +32,8 @@ export function LoginForm() {
         return;
       }
 
-      // Redirection vers le dashboard
-      router.push("/dashboard");
-      router.refresh();
+      // Redirection vers le dashboard avec rechargement complet
+      window.location.href = "/dashboard";
     } catch {
       setError("Une erreur est survenue lors de la connexion");
     } finally {

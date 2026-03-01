@@ -22,10 +22,15 @@ model User {
   reports       Report[]          @relation("ReportReporter")
   services      ServiceAd[]
   tenantProfile TenantProfile?
+  professionalAccount ProfessionalAccount?
   favorites     Favorite[]
   notifications Notification[]
   sentMessages  Message[]         @relation("SentMessages")
   conversations Conversation[]
+  payments     Payment[]
+  unlockedContacts UnlockedContact[]
+  serviceRequestsMade ServiceRequest[] @relation("ServiceRequester")
+  proReviews    ServiceReview[]   @relation("ProReviewer")
 
   @@map("users")
 }
@@ -128,6 +133,7 @@ model ServiceReview {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   service   ServiceAd @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user      User     @relation("ProReviewer", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("service_reviews")
 }
@@ -212,4 +218,134 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+// Paiements pour déverrouillage de contacts
+model Payment {
+  id            String   @id @default(cuid())
+  userId        String   // Propriétaire qui paie
+  amount        Float    // Montant en euros
+  currency      String   @default("EUR")
+  status        String   @default("pending") // "pending", "succeeded", "failed"
+  type          String   @default("contact") // Type de paiement
+  targetId      String   // ID du locataire contacté
+  paypalOrderId String? // ID de la commande PayPal
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// Contacts déverrouillés (après paiement)
+model UnlockedContact {
+  id          String   @id @default(cuid())
+  landlordId  String   // ID du propriétaire
+  tenantId    String   // ID du profil locataire
+  paymentId   String   // Référence au paiement
+  unlockedAt  DateTime @default(now())
+  user        User     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+
+  @@unique([landlordId, tenantId]) // Un propriétaire ne peut déverrouiller qu'une fois chaque locataire
+  @@map("unlocked_contacts")
+}
+
+// Paramètres de l'application
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Comptes professionnels (déménageurs, garde-meubles, assureurs, etc.)
+model ProfessionalAccount {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  companyName       String           // Raison sociale
+  siret             String           // SIRET chiffré
+  siretHash         String           @unique // Hash pour vérification
+  phone             String?
+  zone              String           // Zone d'intervention (ex: "Paris", "France entière")
+  logo              String?          // URL du logo
+  description       String?          // Description de l'entreprise
+  isVerified        Boolean          @default(false) // SIRET vérifié
+  isApproved        Boolean          @default(false) // Approuvé par admin
+  subscriptionType  String           @default("none") // "none", "per_ad", "monthly"
+  subscriptionEnd   DateTime?        // Date de fin d'abonnement
+  partnerBadge      Boolean          @default(false) // Badge "Partenaire officiel"
+  totalViews        Int              @default(0)
+  totalRequests     Int              @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services          ProService[]
+  requests          ServiceRequest[] @relation("ProRequests")
+  subscriptionPayments ProSubscriptionPayment[]
+
+  @@map("professional_accounts")
+}
+
+// Services proposés par les professionnels
+model ProService {
+  id             String          @id @default(cuid())
+  proId          String
+  category       String          // "demenagement", "garde_meubles", "assurance", "nettoyage", "autre"
+  title          String
+  description    String?
+  price          Int?            // Prix en centimes (null = sur devis)
+  priceType      String          @default("fixed") // "fixed", "from", "on_quote"
+  photos         String?         // JSON array of URLs
+  zone           String?         // Zone spécifique si différente du profil
+  isActive       Boolean         @default(true)
+  isPaid         Boolean         @default(false) // Paiement effectué (5€ ou abonnement)
+  paymentId      String?         // Référence au paiement
+  views          Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  pro            ProfessionalAccount @relation(fields: [proId], references: [id], onDelete: Cascade)
+  requests       ServiceRequest[]
+
+  @@map("pro_services")
+}
+
+// Demandes de contact vers les professionnels
+model ServiceRequest {
+  id           String   @id @default(cuid())
+  serviceId    String
+  proId        String
+  requesterId  String
+  requesterName    String
+  requesterEmail   String
+  requesterPhone   String?
+  message      String
+  status       String   @default("nouveau") // "nouveau", "en_cours", "termine", "archive"
+  proNotes     String?  // Notes internes du pro
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  service      ProService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  pro          ProfessionalAccount @relation("ProRequests", fields: [proId], references: [id], onDelete: Cascade)
+  requester    User     @relation("ServiceRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@map("service_requests")
+}
+
+// Paiements d'abonnements professionnels
+model ProSubscriptionPayment {
+  id            String   @id @default(cuid())
+  proId         String
+  amount        Float    // Montant en euros
+  type          String   // "per_ad", "monthly"
+  status        String   @default("pending") // "pending", "succeeded", "failed"
+  paypalOrderId String?
+  startDate     DateTime @default(now())
+  endDate       DateTime? // Pour les abonnements mensuels
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  pro           ProfessionalAccount @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  @@map("pro_subscription_payments")
 }

@@ -1,11 +1,8 @@
-// Composant client pour la liste des services - Domelia.fr
+// Composant client pour la liste des services - Domelia.fr (Design épuré)
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ServiceCard } from "@/components/domelia/ServiceCard";
-import { ServiceFilters } from "@/components/domelia/ServiceFilters";
-import { Button } from "@/components/ui/button";
 
 interface Service {
   id: string;
@@ -23,21 +20,6 @@ interface Service {
   avgRating?: number | null;
   reviewCount: number;
   createdAt: string;
-  user?: {
-    id: string;
-    name?: string | null;
-    email: string;
-  } | null;
-}
-
-interface ServicesResponse {
-  services: Service[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 // Données de démo
@@ -60,7 +42,7 @@ const demoServices: Service[] = [
   {
     id: "service-2",
     company: "StockPro",
-    category: "stockage",
+    category: "garde_meubles",
     title: "Garde-meubles sécurisé",
     description: "Stockage de meubles et affaires personnelles en box sécurisé 24/7.",
     price: 49,
@@ -90,7 +72,7 @@ const demoServices: Service[] = [
   {
     id: "service-4",
     company: "HandyServices",
-    category: "bricolage",
+    category: "travaux",
     title: "Petits travaux & Bricolage",
     description: "Installation, montage de meubles, petites réparations. Intervention rapide.",
     price: 35,
@@ -105,7 +87,7 @@ const demoServices: Service[] = [
   {
     id: "service-5",
     company: "HomeClean Pro",
-    category: "menage",
+    category: "nettoyage",
     title: "Nettoyage professionnel",
     description: "Ménage régulier ou ponctuel. État des lieux de sortie inclus.",
     price: 25,
@@ -134,165 +116,336 @@ const demoServices: Service[] = [
   },
 ];
 
+const CATEGORY_FILTERS = [
+  { key: "all", label: "Tous", icon: "📋" },
+  { key: "demenagement", label: "Déménagement", icon: "🚚" },
+  { key: "garde_meubles", label: "Garde-meubles", icon: "📦" },
+  { key: "assurance", label: "Assurance", icon: "🛡️" },
+  { key: "nettoyage", label: "Nettoyage", icon: "🧹" },
+  { key: "travaux", label: "Bricolage", icon: "🔧" },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  demenagement: "Déménagement professionnel",
+  garde_meubles: "Garde-meubles sécurisé",
+  assurance: "Assurance habitation",
+  nettoyage: "Nettoyage professionnel",
+  travaux: "Petits travaux & Bricolage",
+  autre: "Autre service",
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  demenagement: "🚚",
+  garde_meubles: "📦",
+  assurance: "🛡️",
+  nettoyage: "🧹",
+  travaux: "🔧",
+  autre: "📋",
+};
+
 export function ServiceListClient() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters] = useState({
-    category: "all",
-    zone: "",
-    priceMin: 0,
-    priceMax: 1000,
-  });
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [showContactModal, setShowContactModal] = useState<Service | null>(null);
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.category !== "all") params.append("category", filters.category);
-      if (filters.zone) params.append("zone", filters.zone);
-      if (filters.priceMin > 0) params.append("priceMin", filters.priceMin.toString());
-      if (filters.priceMax < 1000) params.append("priceMax", filters.priceMax.toString());
-      params.append("page", page.toString());
+      if (activeFilter !== "all") params.append("category", activeFilter);
       params.append("limit", "12");
 
       const response = await fetch(`/api/services?${params.toString()}`);
-      const data: ServicesResponse = await response.json();
+      const data = await response.json();
 
       if (response.ok) {
-        // Combiner les données de la BDD avec les données de démo
         const allServices = [...data.services];
         
-        // Ajouter les services de démo qui ne sont pas dans la BDD
-        const dbIds = new Set(data.services.map(s => s.id));
+        // Ajouter les services de démo
+        const dbIds = new Set(data.services.map((s: Service) => s.id));
         for (const demo of demoServices) {
           if (!dbIds.has(demo.id)) {
-            // Filtrer selon les filtres actuels
-            if (filters.category !== "all" && demo.category !== filters.category) continue;
-            if (filters.zone && !demo.zone?.toLowerCase().includes(filters.zone.toLowerCase())) continue;
-            if (filters.priceMin > 0 && (demo.price || 0) < filters.priceMin) continue;
-            if (filters.priceMax < 1000 && (demo.price || 0) > filters.priceMax) continue;
+            if (activeFilter !== "all" && demo.category !== activeFilter) continue;
             allServices.push(demo);
           }
         }
         
         setServices(allServices);
-        setTotalPages(Math.max(data.pagination.totalPages, 1));
       } else {
-        // En cas d'erreur, utiliser les données de démo
-        setServices(demoServices);
-        setTotalPages(1);
+        // Filtrer les données de démo
+        const filtered = activeFilter === "all" 
+          ? demoServices 
+          : demoServices.filter(s => s.category === activeFilter);
+        setServices(filtered);
       }
     } catch (error) {
       console.error("Erreur chargement services:", error);
-      // En cas d'erreur, utiliser les données de démo
-      setServices(demoServices);
-      setTotalPages(1);
+      const filtered = activeFilter === "all" 
+        ? demoServices 
+        : demoServices.filter(s => s.category === activeFilter);
+      setServices(filtered);
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [activeFilter]);
 
   useEffect(() => {
     fetchServices();
   }, [fetchServices]);
 
-  const handleFilterChange = (newFilters: typeof filters) => {
-    setFilters(newFilters);
-    setPage(1); // Reset à la page 1
-  };
-
-  const handleLoadMore = () => {
-    setPage((p) => Math.min(p + 1, totalPages));
-  };
-
-  // Adapter les données pour ServiceCard
-  const adaptedServices = services.map((service) => ({
-    id: service.id,
-    companyName: service.company || "Professionnel",
-    category: service.category,
-    title: service.title,
-    description: service.description,
-    price: service.price,
-    zone: service.zone,
-    siretVerified: service.isVerified && !!service.siret,
-    rating: service.avgRating || undefined,
-  }));
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      {/* Sidebar filtres */}
-      <div className="lg:col-span-1">
-        <div className="sticky top-24">
-          <ServiceFilters onFilterChange={handleFilterChange} initialFilters={filters} />
-          
-          <Link
-            href="/deposer-service"
-            className="block mt-6 bg-gradient-to-r from-[#10B981] to-[#059669] text-white font-semibold p-4 rounded-xl text-center hover:shadow-lg transition-shadow"
-          >
-            <span className="text-xl mr-2">+</span>
-            Déposer un service
-          </Link>
+    <>
+      <div className="container-domelia py-8">
+        {/* Filtres */}
+        <div className="flex flex-wrap gap-3 justify-center mb-10">
+          {CATEGORY_FILTERS.map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setActiveFilter(filter.key)}
+              className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                activeFilter === filter.key
+                  ? "bg-[#560591] text-white"
+                  : "bg-white border border-[#E2E8F0] text-[#64748B] hover:border-[#560591] hover:text-[#560591]"
+              }`}
+            >
+              {filter.icon} {filter.label}
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* Liste des services */}
-      <div className="lg:col-span-3">
+        {/* Grille des services */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-luxe p-5 animate-pulse">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 bg-[#E2E8F0] rounded-xl" />
-                  <div className="flex-1">
-                    <div className="h-5 bg-[#E2E8F0] rounded w-3/4 mb-2" />
-                    <div className="h-4 bg-[#E2E8F0] rounded w-1/2" />
-                  </div>
-                </div>
+              <div key={i} className="bg-white rounded-xl p-6 shadow-sm animate-pulse">
+                <div className="w-16 h-16 bg-[#E2E8F0] rounded-xl mx-auto mb-4" />
+                <div className="h-5 bg-[#E2E8F0] rounded w-3/4 mx-auto mb-2" />
+                <div className="h-4 bg-[#E2E8F0] rounded w-1/2 mx-auto mb-4" />
                 <div className="h-4 bg-[#E2E8F0] rounded mb-2" />
                 <div className="h-4 bg-[#E2E8F0] rounded w-2/3 mb-4" />
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 justify-center mb-4">
                   <div className="h-6 bg-[#E2E8F0] rounded-full w-20" />
                   <div className="h-6 bg-[#E2E8F0] rounded-full w-16" />
                 </div>
-                <div className="h-10 bg-[#E2E8F0] rounded-xl" />
+                <div className="h-10 bg-[#E2E8F0] rounded-lg" />
               </div>
             ))}
           </div>
-        ) : adaptedServices.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-[#F8FAFC] rounded-full flex items-center justify-center mx-auto mb-4">
+        ) : services.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-[#F1F5F9] rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-4xl">🔍</span>
             </div>
             <h3 className="text-xl font-semibold text-[#1E293B] mb-2">
               Aucun service trouvé
             </h3>
-            <p className="text-[#475569]">
+            <p className="text-[#64748B]">
               Essayez de modifier vos filtres pour voir plus de résultats.
             </p>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {adaptedServices.map((service, index) => (
-                <ServiceCard key={service.id} service={service} delay={index * 50} />
-              ))}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+              >
+                {/* Header avec logo */}
+                <div className="p-6 text-center border-b border-[#F1F5F9]">
+                  <div className="w-16 h-16 bg-white border border-[#E2E8F0] rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold text-[#560591]">
+                    {CATEGORY_ICONS[service.category] || "📋"}
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#1E293B] mb-1">
+                    {service.company || "Professionnel"}
+                  </h3>
+                  <span className="inline-block bg-[#f5f0fc] text-[#560591] text-xs font-semibold px-3 py-1 rounded-full">
+                    {CATEGORY_LABELS[service.category] || service.title}
+                  </span>
+                </div>
 
-            {page < totalPages && (
-              <div className="mt-8 text-center">
-                <Button
-                  onClick={handleLoadMore}
-                  variant="outline"
-                  className="px-8"
-                >
-                  Voir plus de services
-                </Button>
+                {/* Contenu */}
+                <div className="p-6">
+                  <p className="text-[#64748B] text-sm mb-4 line-clamp-2">
+                    {service.description}
+                  </p>
+
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {service.isVerified && (
+                      <span className="inline-flex items-center gap-1 bg-[#ECFDF5] text-[#10B981] text-xs px-2 py-1 rounded">
+                        ✅ SIRET vérifié
+                      </span>
+                    )}
+                    {service.avgRating && (
+                      <span className="inline-flex items-center gap-1 bg-[#f5f0fc] text-[#560591] text-xs px-2 py-1 rounded">
+                        ⭐ {service.avgRating.toFixed(1)}
+                      </span>
+                    )}
+                    {service.zone && (
+                      <span className="inline-flex items-center gap-1 bg-[#f5f0fc] text-[#560591] text-xs px-2 py-1 rounded">
+                        📍 {service.zone}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Prix */}
+                  <div className="text-xl font-bold text-[#560591] mb-4">
+                    À partir de {service.price} €
+                  </div>
+
+                  {/* Bouton contact */}
+                  <button
+                    onClick={() => setShowContactModal(service)}
+                    className="w-full py-3 bg-[#560591] text-white font-semibold rounded-lg hover:bg-[#430477] transition-colors"
+                  >
+                    Contacter ce pro
+                  </button>
+                </div>
               </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
+      </div>
+
+      {/* Modal de contact */}
+      {showContactModal && (
+        <ContactModal
+          service={showContactModal}
+          onClose={() => setShowContactModal(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// Modal de contact simplifiée
+function ContactModal({ service, onClose }: { service: Service; onClose: () => void }) {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/professional/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: service.id,
+          ...formData,
+        }),
+      });
+
+      if (res.ok) {
+        setSuccess(true);
+      } else {
+        alert("Erreur lors de l'envoi du message");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Erreur lors de l'envoi du message");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+        <div className="bg-white rounded-xl p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-[#ECFDF5] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">✅</span>
+          </div>
+          <h3 className="text-xl font-bold text-[#1E293B] mb-2">Message envoyé !</h3>
+          <p className="text-[#64748B] mb-6">
+            Le professionnel vous répondra dans les plus brefs délais.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-[#560591] text-white font-semibold rounded-lg"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl p-6 max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-bold text-[#1E293B]">
+            Contacter {service.company}
+          </h3>
+          <button onClick={onClose} className="text-[#94A3B8] hover:text-[#1E293B]">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1E293B] mb-1">Votre nom *</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2.5 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#560591]"
+              placeholder="Jean Dupont"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1E293B] mb-1">Email *</label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2.5 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#560591]"
+              placeholder="jean@exemple.fr"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1E293B] mb-1">Téléphone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-2.5 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#560591]"
+              placeholder="06 12 34 56 78"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1E293B] mb-1">Message *</label>
+            <textarea
+              required
+              rows={4}
+              value={formData.message}
+              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              className="w-full px-4 py-2.5 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#560591] resize-none"
+              placeholder="Décrivez votre besoin..."
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-[#560591] text-white font-semibold rounded-lg hover:bg-[#430477] transition-colors disabled:opacity-50"
+          >
+            {loading ? "Envoi en cours..." : "Envoyer le message"}
+          </button>
+        </form>
       </div>
     </div>
   );

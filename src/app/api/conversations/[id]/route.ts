@@ -57,7 +57,7 @@ export async function GET(
     });
 
     // Récupérer les infos de l'annonce liée
-    let listingInfo = null;
+    let listingInfo: { id: string; title?: string; firstName?: string; price?: number; location?: string; city?: string; category?: string } | null = null;
     if (conversation.listingId && conversation.listingType) {
       if (conversation.listingType === "logement") {
         listingInfo = await db.landlordListing.findUnique({

@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { Navbar } from "@/components/domelia/Navbar";
 import { Footer } from "@/components/domelia/Footer";
-import { ContactButton } from "@/components/domelia/ContactButton";
+import { PayPalContactButton } from "@/components/domelia/PayPalContactButton";
 
 // Données de démo pour les profils
 const demoProfiles: Record<string, any> = {
@@ -64,7 +64,7 @@ export default async function LocatairePage({ params }: PageProps) {
   // Vérifier si l'utilisateur est connecté et propriétaire du profil
   const cookieStore = await cookies();
   const userId = cookieStore.get("domelia_user_id")?.value;
-  let currentUser = null;
+  let currentUser: { id: string; email: string; name: string | null; role: string } | null = null;
   if (userId) {
     currentUser = await verifyToken(userId);
   }
@@ -258,12 +258,12 @@ export default async function LocatairePage({ params }: PageProps) {
                   Vous avez un logement ?
                 </h3>
                 <p className="text-white/80 text-sm mb-4">
-                  Ce profil correspond à votre bien ? Contactez {profile.firstName} directement.
+                  Ce profil correspond à votre bien ? Déverrouillez la messagerie pour contacter {profile.firstName} directement.
                 </p>
-                <ContactButton 
-                  targetName={profile.firstName} 
-                  targetType="locataire" 
-                  targetId={profile.id} 
+                <PayPalContactButton 
+                  tenantId={profile.id}
+                  tenantName={profile.firstName}
+                  city={profile.city}
                 />
               </div>
 

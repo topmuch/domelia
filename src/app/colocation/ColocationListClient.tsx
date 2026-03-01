@@ -9,16 +9,14 @@ interface Colocation {
   id: string;
   type: "chambre" | "recherche_coloc";
   title: string;
-  location: string;
-  price: number;
-  surface?: number | null;
+  city: string;
+  budget: number;
+  surface?: number;
+  description?: string;
   photos?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  user?: {
-    name?: string | null;
-    initials?: string;
-  };
+  firstName?: string;
+  latitude?: number;
+  longitude?: number;
   createdAt?: Date;
 }
 
@@ -65,13 +63,14 @@ export function ColocationListClient({ demoColocations }: ColocationListClientPr
           id: listing.id as string,
           type: listing.type as "chambre" | "recherche_coloc",
           title: listing.title as string,
-          location: listing.location as string,
-          price: listing.price as number,
+          city: (listing.location || listing.city) as string,
+          budget: (listing.price || listing.budget) as number,
           surface: listing.surface as number | null | undefined,
+          description: listing.description as string | undefined,
           photos: listing.photos as string | null | undefined,
+          firstName: listing.firstName as string | undefined,
           latitude: listing.latitude as number | null | undefined,
           longitude: listing.longitude as number | null | undefined,
-          user: listing.user as { name?: string | null; initials?: string },
           createdAt: listing.createdAt as Date,
         }));
 
@@ -109,13 +108,13 @@ export function ColocationListClient({ demoColocations }: ColocationListClientPr
     if (currentFilters.city) {
       const cityLower = currentFilters.city.toLowerCase();
       filtered = filtered.filter((item) =>
-        item.location.toLowerCase().includes(cityLower)
+        item.city.toLowerCase().includes(cityLower)
       );
     }
 
     if (currentFilters.maxPrice) {
       const maxPriceNum = parseInt(currentFilters.maxPrice);
-      filtered = filtered.filter((item) => item.price <= maxPriceNum);
+      filtered = filtered.filter((item) => item.budget <= maxPriceNum);
     }
 
     return filtered;

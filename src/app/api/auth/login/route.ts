@@ -1,7 +1,7 @@
 // API de connexion - Domelia.fr
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyPassword, setCurrentUser } from "@/lib/auth";
+import { verifyPassword } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,10 +36,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Connecter l'utilisateur
-    await setCurrentUser(user.id);
+    // Vérifier si l'utilisateur est actif
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: "Votre compte a été désactivé" },
+        { status: 403 }
+      );
+    }
 
-    return NextResponse.json({
+    // Créer la réponse avec le cookie de session
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -48,6 +54,17 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
+
+    // Définir le cookie de session
+    response.cookies.set("domelia_user_id", user.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 jours
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Erreur lors de la connexion:", error);
     return NextResponse.json(

@@ -141,6 +141,30 @@ function hashCode(str: string): number {
   return hash;
 }
 
+interface ColocData {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  location: string;
+  address: string | null;
+  price: number;
+  surface: number | null;
+  photos: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  createdAt: Date;
+  user: {
+    id?: string;
+    name?: string | null;
+    email?: string;
+    initials?: string;
+    isVerified?: boolean;
+  } | null;
+  amenities?: string[];
+  lifestyle?: string[];
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -148,7 +172,7 @@ interface PageProps {
 export default async function ColocPage({ params }: PageProps) {
   const { id } = await params;
 
-  let coloc = null;
+  let coloc: ColocData | null = null;
 
   try {
     // Chercher dans la base de données d'abord
@@ -199,17 +223,19 @@ export default async function ColocPage({ params }: PageProps) {
 
   // Si pas en BDD, utiliser les données de démo
   if (!coloc && demoColocations[id]) {
-    coloc = demoColocations[id];
+    coloc = demoColocations[id] as unknown as ColocData;
   }
 
   if (!coloc) {
     notFound();
+    return null; // TypeScript needs this
   }
 
+  // Maintenant TypeScript sait que coloc n'est pas null
   const isChambre = coloc.type === "chambre";
   const imageUrl = coloc.photos
-    ? JSON.parse(coloc.photos as string)[0]
-    : getFallbackImage(coloc.type as string, coloc.id as string);
+    ? JSON.parse(coloc.photos)[0]
+    : getFallbackImage(coloc.type, coloc.id);
 
   // Badge style
   const getBadgeStyle = () => {
@@ -221,11 +247,7 @@ export default async function ColocPage({ params }: PageProps) {
   const badge = getBadgeStyle();
 
   // Données utilisateur
-  const userData = coloc.user as {
-    name?: string | null;
-    initials?: string;
-    isVerified?: boolean;
-  } | null;
+  const userData = coloc.user;
 
   return (
     <main className="min-h-screen bg-white">
@@ -258,7 +280,7 @@ export default async function ColocPage({ params }: PageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              {coloc.location as string}
+              {coloc.location}
               {coloc.surface && ` • ${coloc.surface} m²`}
             </p>
           </div>
@@ -273,7 +295,7 @@ export default async function ColocPage({ params }: PageProps) {
               {isChambre ? (
                 <img
                   src={imageUrl}
-                  alt={coloc.title as string}
+                  alt={coloc.title}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -297,7 +319,7 @@ export default async function ColocPage({ params }: PageProps) {
 
               {/* Prix overlay */}
               <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm px-6 py-3 rounded-xl shadow-lg">
-                <span className="text-[#560591] font-bold text-2xl">{coloc.price as number} €</span>
+                <span className="text-[#560591] font-bold text-2xl">{coloc.price} €</span>
                 <span className="text-[#475569] text-sm"> /mois</span>
               </div>
             </div>
@@ -315,7 +337,7 @@ export default async function ColocPage({ params }: PageProps) {
               <div className="bg-white rounded-2xl shadow-luxe p-6">
                 <h2 className="text-xl font-bold text-[#1E293B] mb-4">Description</h2>
                 <p className="text-[#475569] leading-relaxed whitespace-pre-line">
-                  {(coloc.description as string) || "Aucune description fournie."}
+                  {coloc.description || "Aucune description fournie."}
                 </p>
               </div>
 
@@ -337,11 +359,11 @@ export default async function ColocPage({ params }: PageProps) {
               )}
 
               {/* Équipements */}
-              {isChambre && (coloc as Record<string, unknown>).amenities && (
+              {isChambre && coloc.amenities && coloc.amenities.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-luxe p-6">
                   <h2 className="text-xl font-bold text-[#1E293B] mb-4">Équipements inclus</h2>
                   <div className="flex flex-wrap gap-2">
-                    {((coloc as Record<string, unknown>).amenities as string[]).map((amenity: string, index: number) => (
+                    {coloc.amenities.map((amenity: string, index: number) => (
                       <span key={index} className="bg-[#EDE9FE] text-[#560591] px-3 py-1 rounded-full text-sm font-medium">
                         ✓ {amenity}
                       </span>
@@ -351,11 +373,11 @@ export default async function ColocPage({ params }: PageProps) {
               )}
 
               {/* Style de vie */}
-              {!isChambre && (coloc as Record<string, unknown>).lifestyle && (
+              {!isChambre && coloc.lifestyle && coloc.lifestyle.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-luxe p-6">
                   <h2 className="text-xl font-bold text-[#1E293B] mb-4">Style de vie recherché</h2>
                   <div className="flex flex-wrap gap-2">
-                    {((coloc as Record<string, unknown>).lifestyle as string[]).map((item: string, index: number) => (
+                    {coloc.lifestyle.map((item: string, index: number) => (
                       <span key={index} className="bg-[#ECFDF5] text-[#10B981] px-3 py-1 rounded-full text-sm font-medium">
                         {item}
                       </span>
@@ -374,7 +396,7 @@ export default async function ColocPage({ params }: PageProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {coloc.address as string}
+                    {coloc.address}
                   </p>
                 )}
 
@@ -382,7 +404,7 @@ export default async function ColocPage({ params }: PageProps) {
                 <div className="w-full h-48 rounded-xl overflow-hidden border border-[#F1F5F9]">
                   {coloc.latitude && coloc.longitude ? (
                     <iframe
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${(coloc.longitude as number) - 0.01}%2C${(coloc.latitude as number) - 0.005}%2C${(coloc.longitude as number) + 0.01}%2C${(coloc.latitude as number) + 0.005}&layer=mapnik&marker=${coloc.latitude}%2C${coloc.longitude}`}
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${coloc.longitude - 0.01}%2C${coloc.latitude - 0.005}%2C${coloc.longitude + 0.01}%2C${coloc.latitude + 0.005}&layer=mapnik&marker=${coloc.latitude}%2C${coloc.longitude}`}
                       width="100%"
                       height="100%"
                       style={{ border: 0 }}
@@ -393,7 +415,7 @@ export default async function ColocPage({ params }: PageProps) {
                       <div className="text-center">
                         <span className="text-4xl mb-2 block">📍</span>
                         <p className="text-[#475569] text-sm">Localisation approximative</p>
-                        <p className="text-[#94A3B8] text-xs">{coloc.location as string}</p>
+                        <p className="text-[#94A3B8] text-xs">{coloc.location}</p>
                       </div>
                     </div>
                   )}
@@ -404,7 +426,7 @@ export default async function ColocPage({ params }: PageProps) {
             {/* Sidebar */}
             <div className="space-y-6">
               {/* Carte détaillée avec info créateur */}
-              <ColocDetailCard listing={coloc as Parameters<typeof ColocDetailCard>[0]["listing"]} />
+              <ColocDetailCard listing={coloc} />
 
               {/* CTA Contact */}
               <div className="bg-[#560591] rounded-2xl p-6 text-white sticky top-24">
@@ -418,16 +440,16 @@ export default async function ColocPage({ params }: PageProps) {
                 </p>
 
                 <ContactButton
-                  targetName={isChambre ? (coloc.title as string) : (userData?.name || "ce colocataire")}
+                  targetName={isChambre ? coloc.title : (userData?.name || "ce colocataire")}
                   targetType="colocataire"
-                  targetId={coloc.id as string}
+                  targetId={coloc.id}
                 />
               </div>
 
               {/* Info */}
               <div className="bg-[#F8FAFC] rounded-2xl p-6 text-sm text-[#94A3B8]">
                 <p>
-                  Annonce publiée le {new Date(coloc.createdAt as Date).toLocaleDateString("fr-FR", {
+                  Annonce publiée le {new Date(coloc.createdAt).toLocaleDateString("fr-FR", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",

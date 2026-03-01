@@ -427,7 +427,8 @@ export default function ListingsPage() {
                       style={modalData.listingType === t.value ? { 
                         backgroundColor: t.color === 'violet' ? '#EDE9FE' : t.color === 'blue' ? '#DBEAFE' : '#D1FAE5',
                         color: t.color === 'violet' ? '#7C3AED' : t.color === 'blue' ? '#3B82F6' : '#10B981',
-                        ringColor: t.color === 'violet' ? '#8B5CF6' : t.color === 'blue' ? '#3B82F6' : '#10B981'
+                        borderColor: t.color === 'violet' ? '#8B5CF6' : t.color === 'blue' ? '#3B82F6' : '#10B981',
+                        borderWidth: '2px'
                       } : {}}
                     >
                       {t.label}

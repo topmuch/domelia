@@ -158,8 +158,23 @@ interface PageProps {
 export default async function PrestatairePage({ params }: PageProps) {
   const { id } = await params;
 
-  let service = null;
-  let reviews: any[] = [];
+  let service: {
+    id: string;
+    company: string | null;
+    siret: string | null;
+    category: string;
+    title: string;
+    description: string | null;
+    price: number | null;
+    zone: string | null;
+    photo: string | null;
+    isVerified: boolean;
+    views: number;
+    createdAt: Date;
+    user?: { id: string; name: string | null; email: string };
+    reviews?: { id: string; rating: number; comment: string | null; createdAt: Date; userId: string }[];
+  } | null = null;
+  let reviews: { id: string; rating: number; comment: string | null; createdAt: Date; userId: string }[] = [];
   let avgRating: number | null = null;
 
   try {
@@ -203,8 +218,9 @@ export default async function PrestatairePage({ params }: PageProps) {
 
   // Fallback vers les données de démo
   if (!service && demoServices[id]) {
-    service = demoServices[id];
-    reviews = service.reviews || [];
+    const demoService = demoServices[id];
+    service = demoService;
+    reviews = demoService.reviews || [];
     if (reviews.length > 0) {
       avgRating = reviews.reduce((acc: number, r: any) => acc + r.rating, 0) / reviews.length;
     }
@@ -212,6 +228,7 @@ export default async function PrestatairePage({ params }: PageProps) {
 
   if (!service) {
     notFound();
+    return null;
   }
 
   // Adapter les données pour les composants

@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { NotificationDropdown } from "./NotificationDropdown";
 import { DarkModeToggle } from "./DarkModeToggle";
 
@@ -17,6 +18,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,31 +28,34 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Vérifier l'auth au montage et lors des changements de route
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const checkAuth = async () => {
+    let isMounted = true;
+    
+    const doCheckAuth = async () => {
       try {
         const response = await fetch("/api/auth/me");
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
+        if (isMounted) {
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data.user);
+          } else {
+            setUser(null);
+          }
         }
       } catch {
-        // Non connecté
+        if (isMounted) {
+          setUser(null);
+        }
       }
     };
-    checkAuth();
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
-      window.location.href = "/";
-    } catch {
-      // Erreur silencieuse
-    }
-  };
+    
+    doCheckAuth();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname]);
 
   return (
     <nav
@@ -172,12 +177,13 @@ export function Navbar() {
                         </Link>
                       )}
                       <hr className="border-gray-100 dark:border-slate-700" />
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 text-red-500"
+                      <Link
+                        href="/deconnexion"
+                        onClick={() => setShowUserMenu(false)}
+                        className="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 text-red-500"
                       >
                         Déconnexion
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </div>

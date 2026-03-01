@@ -14,51 +14,65 @@ export async function GET() {
       );
     }
 
-    // Recuperer le profil complet avec les annonces
-    const fullProfile = await db.user.findUnique({
-      where: { id: user.id },
-      include: {
-        tenantProfile: true,
-        listings: {
-          select: {
-            id: true,
-            title: true,
-            type: true,
-            location: true,
-            price: true,
-            isActive: true,
-            views: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
+    // Recuperer le profil complet avec les annonces en parallele
+    const [userProfile, listings, colocations, services] = await Promise.all([
+      // Profil utilisateur avec tenantProfile
+      db.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          tenantProfile: true,
         },
-        colocations: {
-          select: {
-            id: true,
-            title: true,
-            location: true,
-            price: true,
-            isActive: true,
-            views: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
+      }),
+      // Annonces de logement (landlord listings)
+      db.landlordListing.findMany({
+        where: { userId: user.id },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          location: true,
+          price: true,
+          isActive: true,
+          views: true,
+          createdAt: true,
         },
-        services: {
-          select: {
-            id: true,
-            title: true,
-            category: true,
-            isActive: true,
-            views: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" },
+      }),
+      // Colocations
+      db.colocListing.findMany({
+        where: { userId: user.id },
+        select: {
+          id: true,
+          title: true,
+          location: true,
+          price: true,
+          isActive: true,
+          views: true,
+          createdAt: true,
         },
-      },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+      // Services (via proId)
+      db.serviceAd.findMany({
+        where: { proId: user.id },
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          isActive: true,
+          views: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
-    if (!fullProfile) {
+    if (!userProfile) {
       return NextResponse.json(
         { error: "Utilisateur non trouve" },
         { status: 404 }
@@ -67,31 +81,32 @@ export async function GET() {
 
     // Calculer les statistiques
     const totalViews = 
-      fullProfile.listings.reduce((sum, l) => sum + l.views, 0) +
-      fullProfile.colocations.reduce((sum, c) => sum + c.views, 0) +
-      fullProfile.services.reduce((sum, s) => sum + s.views, 0) +
-      (fullProfile.tenantProfile?.views || 0);
+      listings.reduce((sum, l) => sum + l.views, 0) +
+      colocations.reduce((sum, c) => sum + c.views, 0) +
+      services.reduce((sum, s) => sum + s.views, 0) +
+      (userProfile.tenantProfile?.views || 0);
 
     const activeListings = 
-      fullProfile.listings.filter(l => l.isActive).length +
-      fullProfile.colocations.filter(c => c.isActive).length;
+      listings.filter(l => l.isActive).length +
+      colocations.filter(c => c.isActive).length +
+      services.filter(s => s.isActive).length;
 
     return NextResponse.json({
       user: {
-        id: fullProfile.id,
-        email: fullProfile.email,
-        name: fullProfile.name,
-        role: fullProfile.role,
-        createdAt: fullProfile.createdAt,
+        id: userProfile.id,
+        email: userProfile.email,
+        name: userProfile.name,
+        role: userProfile.role,
+        createdAt: userProfile.createdAt,
       },
-      tenantProfile: fullProfile.tenantProfile,
-      listings: fullProfile.listings,
-      colocations: fullProfile.colocations,
-      services: fullProfile.services,
+      tenantProfile: userProfile.tenantProfile,
+      listings: listings,
+      colocations: colocations,
+      services: services,
       stats: {
         totalViews,
         activeListings,
-        totalListings: fullProfile.listings.length + fullProfile.colocations.length,
+        totalListings: listings.length + colocations.length,
       },
     });
   } catch (error) {
