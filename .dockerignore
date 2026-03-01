@@ -1,0 +1,65 @@
+# Fichiers à ignorer lors du build Docker
+
+# Dépendances
+node_modules
+bun.lock
+
+# Fichiers de développement
+.next
+out
+build
+coverage
+*.log
+dev.log
+server.log
+
+# Fichiers IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de config locale
+.env
+.env.*
+!.env.example
+
+# Base de données locale
+db/*.db
+*.db-journal
+prisma/dev.db
+
+# Fichiers de test
+test
+__tests__
+*.test.ts
+*.spec.ts
+
+# Documentation et exemples
+examples
+README.md
+CHANGELOG.md
+LICENSE
+
+# Fichiers Coolify/Kubernetes
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Fichiers Claude/AI
+.claude
+.z-ai-config
+prompt
+skills
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
